@@ -89,27 +89,27 @@ Hợp đồng thông minh `AttendanceFinal.sol` được triển khai để lưu
 </div>
 
 <div align="center">
-    <img width="80%" src="img/dashboard.png" />
+    <img width="80%" src="Code/2.png" />
     <p><i>Màn hình tổng quan Dashboard quản trị</i></p>
 </div>
 
 <div align="center">
-    <img width="80%" src="img/tra_cuu.png" />
+    <img width="80%" src="Code/3.png" />
     <p><i>Trang báo cáo sinh viên</i></p>
 </div>
 
 <div align="center">
-    <img width="80%" src="img/report.png" />
+    <img width="80%" src="Code/4.png" />
     <p><i>Giao diện điểm danh sinh viên</i></p>
 </div>
 
 <div align="center">
-    <img width="80%" src="img/report.png" />
+    <img width="80%" src="Code/5.png" />
     <p><i>Gửi báo cáo qua telegram</i></p>
 </div>
 
 <div align="center">
-    <img width="80%" src="img/report.png" />
+    <img width="80%" src="Code/6.png" />
     <p><i>Tra cứu điểm danh</i></p>
 </div>
 
