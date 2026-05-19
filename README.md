@@ -83,8 +83,6 @@ Hợp đồng thông minh `AttendanceFinal.sol` được triển khai để lưu
 
 ## 6. 🖥️ Giao diện hệ thống
 
-*(Lưu ý: Bạn nên lưu các ảnh chụp màn hình ứng dụng vào một thư mục đặt tên là `img` trong dự án để các đường dẫn ảnh hiển thị chuẩn xác nhất trên GitHub).*
-
 <div align="center">
     <img width="80%" src="img/login.png" />
     <p><i>Màn hình cổng đăng nhập xác thực ví MetaMask</i></p>
@@ -92,17 +90,27 @@ Hợp đồng thông minh `AttendanceFinal.sol` được triển khai để lưu
 
 <div align="center">
     <img width="80%" src="img/dashboard.png" />
-    <p><i>Màn hình tổng quan Dashboard quản trị, khởi tạo và lập danh sách điểm danh</i></p>
+    <p><i>Màn hình tổng quan Dashboard quản trị</i></p>
 </div>
 
 <div align="center">
     <img width="80%" src="img/tra_cuu.png" />
-    <p><i>Tính năng tra cứu nhanh kết quả điểm danh phối hợp logic kiểm tra sai lệch thông tin</i></p>
+    <p><i>Trang báo cáo sinh viên</i></p>
 </div>
 
 <div align="center">
     <img width="80%" src="img/report.png" />
-    <p><i>Giao diện xem báo cáo danh sách chi tiết sinh viên và lịch sử quét chuỗi khối</i></p>
+    <p><i>Giao diện điểm danh sinh viên</i></p>
+</div>
+
+<div align="center">
+    <img width="80%" src="img/report.png" />
+    <p><i>Gửi báo cáo qua telegram</i></p>
+</div>
+
+<div align="center">
+    <img width="80%" src="img/report.png" />
+    <p><i>Tra cứu điểm danh</i></p>
 </div>
 
 ---
@@ -122,4 +130,4 @@ Hợp đồng thông minh `AttendanceFinal.sol` được triển khai để lưu
 ### Clone project
 Mở terminal và sao chép mã nguồn về máy cục bộ:
 ```bash
-git clone [https://github.com/username/your-repo.git](https://github.com/username/your-repo.git)
+git clone [https://github.com/MinnKaa/Block_Chain_Diem_Danh.git]
