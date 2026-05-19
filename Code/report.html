@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S-Attend | Báo Cáo Điểm Danh Toàn Diện</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f8f9fa;
+            color: #2b2d42;
+            padding-top: 30px;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+        .table-wrapper {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #eee;
+        }
+        .table thead { background: #2b2d42; color: white; }
+        .badge-history {
+            display: inline-block;
+            margin: 2px;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="fw-bold text-primary">Báo Cáo Điểm Danh Sinh Viên</h2>
+            </div>
+            <a href="index.html" class="btn btn-outline-secondary fw-bold">Quay lại Dashboard</a>
+        </div>
+
+        <div class="card p-4 mb-4">
+            <h6 class="fw-bold text-secondary mb-3">TÙY CHỌN TRA CỨU</h6>
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="small fw-bold mb-1">Chọn Ngày Học Đối Soát</label>
+                    <input type="date" id="reportDate" class="form-control">
+                </div>
+                <div class="col-md-4">
+                    <button onclick="loadAttendanceReport()" class="btn btn-primary w-100 fw-bold">
+                        Tải Dữ Liệu
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-0 table-wrapper shadow-sm">
+            <table class="table align-middle mb-0 table-striped">
+                <thead>
+                    <tr>
+                        <th style="width: 25%; padding: 15px;">Thông tin sinh viên</th>
+                        <th style="width: 30%;">Địa chỉ ví</th>
+                        <th style="width: 45%;">Lịch sử trạng thái buổi học (Môn học - Trạng thái)</th>
+                    </tr>
+                </thead>
+                <tbody id="reportTableBody">
+                    <tr>
+                        <td colspan="3" class="text-center py-4 text-muted">
+                            Vui lòng chọn ngày học và bấm nút "Tải Dữ Liệu".
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let contract;
+        let signer;
+
+        // ĐỒNG BỘ ĐỊA CHỈ VÀ ABI TỪ INDEX.HTML CỦA BẠN
+        const contractAddress = "0xbc62416Fad4E42681680Eb4e45D9624D27a5ac86";
+        const abi = [{"inputs":[{"internalType":"string","name":"_desc","type":"string"}],"name":"createSession","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_sessionId","type":"uint256"},{"internalType":"address[]","name":"_studentAddrs","type":"address[]"},{"internalType":"bytes32[]","name":"_dataHashes","type":"bytes32[]"}],"name":"markAttendanceBulk","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_addr","type":"address"},{"internalType":"string","name":"_name","type":"string"}],"name":"registerStudent","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"attendanceProofs","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_sessionId","type":"uint256"}],"name":"getSessionAttendees","outputs":[{"internalType":"address[]","name":"","type":"address[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"sessionAttendees","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"sessionCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"sessions","outputs":[{"internalType":"string","name":"desc","type":"string"},{"internalType":"bool","name":"isOpen","type":"bool"},{"internalType":"uint256","name":"startTime","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"students","outputs":[{"internalType":"string","name":"name","type":"string"},{"internalType":"bool","name":"isRegistered","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"teacher","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_sessionId","type":"uint256"},{"internalType":"address","name":"_studentAddr","type":"address"}],"name":"verifyAttendance","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"view","type":"function"}];
+
+        // TỰ ĐỘNG KẾT NỐI KHI MỞ TRANG
+        async function initBlockchain() {
+            if (window.ethereum) {
+                try {
+                    const provider = new ethers.BrowserProvider(window.ethereum);
+                    signer = await provider.getSigner();
+                    contract = new ethers.Contract(contractAddress, abi, signer);
+                    
+                    // Thiết lập mặc định ngày hôm nay vào ô chọn ngày học để tiện đối soát
+                    const today = new Date().toISOString().split('T')[0];
+                    document.getElementById('reportDate').value = today;
+                    
+                    console.log("Kết nối Blockchain thành công tại trang Report!");
+                } catch (e) {
+                    alert("Kết nối MetaMask thất bại!");
+                }
+            } else {
+                alert("Vui lòng cài đặt MetaMask!");
+            }
+        }
+
+        async function loadAttendanceReport() {
+            const reportBody = document.getElementById('reportTableBody');
+            const studyDate = document.getElementById('reportDate').value;
+
+            if (!contract) return alert("Hệ thống chưa kết nối Blockchain!");
+            if (!studyDate) return alert("Vui lòng chọn ngày học muốn đối soát!");
+
+            reportBody.innerHTML = `<tr><td colspan="3" class="text-center py-4">⏳ Đang đọc dữ liệu từ Smart Contract và đối soát mã băm, vui lòng đợi...</td></tr>`;
+
+            try {
+                // 1. ĐỌC DANH SÁCH SINH VIÊN TỪ LOCALSTORAGE ĐÃ LƯU Ở TRANG CHỦ
+                const savedStudents = JSON.parse(localStorage.getItem('savedStudents') || '[]');
+                if (savedStudents.length === 0) {
+                    reportBody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-warning">⚠️ Không tìm thấy dữ liệu sinh viên nào trong localStorage của trình duyệt! Bạn hãy đăng ký sinh viên ở trang chủ trước.</td></tr>`;
+                    return;
+                }
+
+                // 2. ĐỌC TOÀN BỘ BUỔI HỌC THỰC TẾ TRÊN BLOCKCHAIN
+                const totalSessions = await contract.sessionCount();
+                let activeSessions = [];
+                
+                for (let i = 1; i <= totalSessions; i++) {
+                    const sessionData = await contract.sessions(i);
+                    activeSessions.push({
+                        id: i,
+                        subject: sessionData.desc.trim() // Tên môn học gốc từ Blockchain
+                    });
+                }
+
+                if (activeSessions.length === 0) {
+                    reportBody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-warning">⚠️ Chưa có buổi học nào được tạo trên Blockchain!</td></tr>`;
+                    return;
+                }
+
+                // 3. TIẾN HÀNH QUY ĐỔI VÀ ĐỐI SOÁT HASH HÀNG LOẠT
+                let htmlContent = "";
+
+                for (const student of savedStudents) {
+                    let attendanceHistoryHTML = "";
+                    const normalizedAddr = student.addr.toLowerCase().trim();
+
+                    for (const session of activeSessions) {
+                        // Gọi hàm gốc verifyAttendance từ Blockchain của bạn
+                        const storedHash = await contract.verifyAttendance(session.id, student.addr);
+
+                        // TÁO MÃ BĂM ĐỐI CHIẾU CHUẨN 100% THEO CHỈ THỊ TRANG CHỦ ĐÃ LƯU
+                        const rawString = normalizedAddr + "Present" + session.subject + studyDate;
+                        const expectedHash = ethers.keccak256(ethers.toUtf8Bytes(rawString));
+
+                        // Đối chiếu khớp mã băm
+                        if (
+                            storedHash !== "0x0000000000000000000000000000000000000000000000000000000000000000" && 
+                            storedHash.toLowerCase() === expectedHash.toLowerCase()
+                        ) {
+                            attendanceHistoryHTML += `
+                                <span class="badge bg-success badge-history">
+                                    ✅ ID ${session.id}: ${session.subject} - ĐI HỌC
+                                </span>`;
+                        } else {
+                            attendanceHistoryHTML += `
+                                <span class="badge bg-secondary badge-history text-white-50">
+                                    ❌ ID ${session.id}: ${session.subject} - VẮNG
+                                </span>`;
+                        }
+                    }
+
+                    // Thêm dòng sinh viên vào bảng kết quả
+                    htmlContent += `
+                        <tr>
+                            <td style="padding: 15px;"><strong>${student.name}</strong></td>
+                            <td><code>${student.addr}</code></td>
+                            <td>${attendanceHistoryHTML}</td>
+                        </tr>`;
+                }
+
+                reportBody.innerHTML = htmlContent;
+
+            } catch (error) {
+                console.error("Lỗi đối soát chi tiết:", error);
+                reportBody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-danger">❌ Đã xảy ra lỗi hệ thống khi quét chuỗi. Chi tiết lỗi tại màn hình Console.</td></tr>`;
+            }
+        }
+
+        // Kích hoạt nạp blockchain khi vừa load xong trang report
+        window.addEventListener('load', initBlockchain);
+    </script>
+</body>
+</html>

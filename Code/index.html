@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S-Attend | Hệ thống Điểm danh Blockchain</title>
+
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval';">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+    <script src="xlsx.js"></script>
+	
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3f37c9;
+            --danger: #ef233c;
+            --success: #2ec4b6;
+            --dark: #2b2d42;
+            --bg: #f8f9fa;
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--bg);
+            color: var(--dark);
+            min-height: 100vh;
+        }
+
+        /* Login Screen */
+        #loginScreen {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+        }
+
+        .login-card {
+            background: white;
+            padding: 3rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+        }
+
+        /* Main Dashboard (Hidden initially) */
+        #mainApp { display: none; }
+
+        .navbar {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            padding: 1rem 2rem;
+        }
+
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            margin-bottom: 1.5rem;
+            transition: transform 0.3s;
+        }
+
+        .card:hover { transform: translateY(-5px); }
+
+        .btn-primary { background-color: var(--primary); border: none; border-radius: 10px; padding: 10px 20px; }
+        .btn-danger { background-color: var(--danger); border: none; border-radius: 10px; }
+
+        .table-wrapper {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #eee;
+        }
+
+        .table thead { background: var(--dark); color: white; }
+
+        .status-dot {
+            height: 10px;
+            width: 10px;
+            background-color: var(--success);
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+
+        .dropdown-custom {
+            border-radius: 10px;
+            border: 1px solid #ddd;
+            padding: 12px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loginScreen">
+        <div class="login-card">
+            <h1 class="fw-bold mb-3">S-Attend</h1>
+            <p class="text-muted mb-4">Vui lòng kết nối ví MetaMask để truy cập hệ thống điểm danh Blockchain</p>
+            <button onclick="connectWallet()" class="btn btn-primary btn-lg w-100 fw-bold">
+                Connect MetaMask
+            </button>
+            <div class="mt-3 small text-white-50">Yêu cầu mạng: Sepolia Testnet</div>
+        </div>
+    </div>
+
+    <div id="mainApp">
+        <nav class="navbar sticky-top mb-4">
+            <div class="container-fluid">
+                <span class="navbar-brand fw-bold text-primary">MK Dashboard</span>
+                <a href="report.html" class="btn btn-info text-white fw-bold">Báo Cáo Sinh Viên </a>
+                <div class="d-flex align-items-center">
+                    <span id="userAddress" class="badge bg-light text-dark border me-2 p-2">0x00...</span>
+                    <button onclick="logout()" class="btn btn-sm btn-outline-danger">Đăng xuất</button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card p-4">
+                        <h6 class="fw-bold mb-3 text-secondary">KHỞI TẠO DỮ LIỆU</h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <input id="sName" type="text" class="form-control" placeholder="Tên sinh viên">
+                                    <input id="sAddr" type="text" class="form-control" placeholder="Ví 0x...">
+                                    <button onclick="runReg()" class="btn btn-primary">Đăng ký</button>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <input id="sDesc" type="text" class="form-control" placeholder="Tên buổi học mới">
+                                    <button onclick="runCreateSess()" class="btn btn-dark">Tạo Buổi</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card p-4 border-top border-primary border-5">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h5 class="fw-bold mb-0">Lập Danh Sách Điểm Danh</h5>
+                        </div>
+
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-5">
+                                <label class="small fw-bold">1. Chọn Buổi Học</label>
+                                <select id="selSession" class="form-select dropdown-custom"></select>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="small fw-bold">2. Chọn Sinh Viên</label>
+                                <select id="selStudent" class="form-select dropdown-custom"></select>
+                            </div>
+                            <div class="col-md-6">
+                            <label class="fw-bold">3. Chọn Ngày Học:</label>
+                            <input type="date" id="selDate" class="form-control">
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button onclick="addToTable()" class="btn btn-dark w-100 p-2">Thêm</button>
+                            </div>
+                        </div>
+
+                        <div class="table-wrapper mb-3">
+                            <table class="table align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Thông tin sinh viên</th>
+                                        <th class="text-center">Trạng thái</th>
+                                        <th class="text-center">Hành động</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="attendanceBody">
+                                    </tbody>
+                            </table>
+                        </div>
+
+                        <button onclick="sendBulkToBlockchain()" class="btn btn-danger btn-lg w-100 fw-bold shadow">
+                            XÁC NHẬN LƯU BLOCKCHAIN
+                        </button>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <div class="card p-4 shadow-sm border-0">
+                        <h5 class="fw-bold mb-4">TRA CỨU NHANH</h5>
+                        
+                        <div class="mb-3">
+                            <label class="small fw-bold">ID Buổi học (Số)</label>
+                            <input type="number" id="checkSessionId" class="form-control" placeholder="Ví dụ: 3">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="small fw-bold">Ngày học</label>
+                            <input type="date" id="checkDate" class="form-control">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="small fw-bold">Địa chỉ ví sinh viên</label>
+                            <input type="text" id="checkStudentAddr" class="form-control" placeholder="0x...">
+                        </div>
+
+                        <button onclick="checkAttendance()" class="btn btn-outline-primary w-100">Kiểm tra kết quả</button>
+                        <div id="checkResult" class="mt-3"></div>
+                    </div>
+
+                    <div class="card p-4 bg-dark text-white">
+                        <h6 class="fw-bold mb-3 text-warning">DỮ LIỆU & BÁO CÁO</h6>
+                        <button onclick="sendToTelegram()" class="btn btn-primary w-100 fw-bold">
+							✈️ Gửi Báo Cáo Qua Telegram
+						</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+        let contract;
+        let signer;
+        let listToMark = []; // Danh sách đang hiển thị trên bảng điểm danh
+        
+        // ĐỊA CHỈ CONTRACT CỦA BẠN
+        const contractAddress = "0xbc62416Fad4E42681680Eb4e45D9624D27a5ac86";
+        
+        const abi = [{"inputs":[{"internalType":"string","name":"_desc","type":"string"}],"name":"createSession","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_sessionId","type":"uint256"},{"internalType":"address[]","name":"_studentAddrs","type":"address[]"},{"internalType":"bytes32[]","name":"_dataHashes","type":"bytes32[]"}],"name":"markAttendanceBulk","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_addr","type":"address"},{"internalType":"string","name":"_name","type":"string"}],"name":"registerStudent","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"attendanceProofs","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_sessionId","type":"uint256"}],"name":"getSessionAttendees","outputs":[{"internalType":"address[]","name":"","type":"address[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"sessionAttendees","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"sessionCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"sessions","outputs":[{"internalType":"string","name":"desc","type":"string"},{"internalType":"bool","name":"isOpen","type":"bool"},{"internalType":"uint256","name":"startTime","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"students","outputs":[{"internalType":"string","name":"name","type":"string"},{"internalType":"bool","name":"isRegistered","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"teacher","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_sessionId","type":"uint256"},{"internalType":"address","name":"_studentAddr","type":"address"}],"name":"verifyAttendance","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"view","type":"function"}];
+
+        // 1. Hàm tự động chạy khi tải lại trang
+        window.addEventListener('DOMContentLoaded', async () => {
+            // Nếu trước đó đã bấm kết nối thành công, tiến hành tự động kết nối lại
+            if (localStorage.getItem('isWalletConnected') === 'true' && window.ethereum) {
+                try {
+                    // Kiểm tra xem MetaMask có thực sự đang cho phép ứng dụng truy cập không (tránh popup hỏi lại)
+                    const provider = new ethers.BrowserProvider(window.ethereum);
+                    const accounts = await provider.listAccounts(); // Lấy danh sách tài khoản đã kết nối công khai
+                    
+                    if (accounts.length > 0) {
+                        console.log("Tự động kết nối ví thành công!");
+                        // Gọi hàm kết nối chính để khôi phục lại trạng thái giao diện và contract
+                        await connectWallet(); 
+                    } else {
+                        // Nếu người dùng đã ngắt kết nối thủ công trên MetaMask, xóa log
+                        localStorage.removeItem('isWalletConnected');
+                    }
+                } catch (e) {
+                    console.error("Lỗi tự động kết nối ví:", e);
+                    localStorage.removeItem('isWalletConnected');
+                }
+            }
+        });
+
+        // 2. Hàm kết nối ví chính (Đã được chỉnh sửa lại từ code của bạn)
+        async function connectWallet() {
+            if (window.ethereum) {
+                try {
+                    const provider = new ethers.BrowserProvider(window.ethereum);
+                    signer = await provider.getSigner();
+                    const addr = await signer.getAddress();
+                    
+                    contract = new ethers.Contract(contractAddress, abi, signer);
+                    
+                    // LƯU TRẠNG THÁI VÀO LOCALSTORAGE
+                    localStorage.setItem('isWalletConnected', 'true');
+                    
+                    // Cập nhật giao diện ẩn/hiện và hiển thị địa chỉ ví
+                    document.getElementById('loginScreen').style.display = 'none';
+                    document.getElementById('mainApp').style.display = 'block';
+                    document.getElementById('userAddress').innerText = addr.substring(0, 6) + "..." + addr.substring(38);
+                    
+                    // Tự động load dữ liệu khi vào dashboard
+                    loadSessions();
+                    loadLocalStudents(); 
+                } catch (e) { 
+                    console.error(e);
+                    alert("Kết nối bị từ chối hoặc gặp lỗi!"); 
+                }
+            } else { 
+                alert("Vui lòng cài đặt MetaMask!"); 
+            }
+        }
+
+        // 3. BẮT BUỘC: Hàm đăng xuất (Gắn hàm này vào nút "Đăng xuất" trên Dashboard của bạn)
+        function logout() {
+            // Xóa trạng thái lưu trữ để tránh bị tự động đăng nhập lại
+            localStorage.removeItem('isWalletConnected');
+            
+            // Reset lại giao diện về màn hình đăng nhập
+            document.getElementById('loginScreen').style.display = 'block';
+            document.getElementById('mainApp').style.display = 'none';
+            
+            // Reload lại trang để xóa sạch các biến global trong bộ nhớ cho an toàn
+            window.location.reload();
+        }
+
+        // --- QUẢN LÝ SINH VIÊN (LOCAL STORAGE) ---
+        async function runReg() {
+            const addr = document.getElementById('sAddr').value.trim();
+            const name = document.getElementById('sName').value.trim();
+            if(!addr || !name) return alert("Nhập đủ thông tin!");
+
+            try {
+                const tx = await contract.registerStudent(addr, name);
+                alert("Đang gửi đăng ký lên Blockchain...");
+                await tx.wait();
+
+                // Lưu vào bộ nhớ máy để không bị mất khi F5
+                let students = JSON.parse(localStorage.getItem('savedStudents') || '[]');
+                if(!students.find(s => s.addr === addr)) {
+                    students.push({ addr, name });
+                    localStorage.setItem('savedStudents', JSON.stringify(students));
+                }
+
+                loadLocalStudents();
+                alert("Đăng ký thành công!");
+            } catch (e) { alert("Lỗi: " + (e.reason || e.message)); }
+        }
+
+        function loadLocalStudents() {
+            const students = JSON.parse(localStorage.getItem('savedStudents') || '[]');
+            const selStu = document.getElementById('selStudent');
+            selStu.innerHTML = '<option value="">-- Chọn Sinh Viên --</option>';
+            students.forEach(s => {
+                selStu.innerHTML += `<option value="${s.addr}|${s.name}">${s.name} (${s.addr.substring(0,6)}...)</option>`;
+            });
+        }
+
+        // --- QUẢN LÝ BUỔI HỌC ---
+        async function runCreateSess() {
+            const desc = document.getElementById('sDesc').value;
+            if(!desc) return alert("Nhập tên buổi!");
+            try {
+                const tx = await contract.createSession(desc);
+                await tx.wait();
+                loadSessions();
+                alert("Đã tạo buổi học!");
+            } catch (e) { alert("Lỗi: " + (e.reason || e.message)); }
+        }
+
+        async function loadSessions() {
+            try {
+                const count = await contract.sessionCount();
+                const sel = document.getElementById('selSession');
+                sel.innerHTML = '<option value="">-- Chọn Buổi Học --</option>';
+                for(let i=1; i<=count; i++) {
+                    const s = await contract.sessions(i);
+                    // Hiển thị cả buổi đóng và mở để xem báo cáo, nhưng ưu tiên buổi isOpen
+                    sel.innerHTML += `<option value="${i}">ID ${i}: ${s.desc} ${s.isOpen ? "" : "(Đã đóng)"}</option>`;
+                }
+            } catch (e) { console.error("Lỗi load session:", e); }
+        }
+
+        // --- ĐIỂM DANH ---
+        function addToTable() {
+            const sVal = document.getElementById('selStudent').value;
+            if(!sVal) return alert("Vui lòng chọn sinh viên!");
+            const [addr, name] = sVal.split('|');
+            if(listToMark.find(x => x.addr === addr)) return alert("SV đã có trong bảng!");
+            listToMark.push({ addr, name });
+            renderTable();
+        }
+
+        function renderTable() {
+            const body = document.getElementById('attendanceBody');
+            body.innerHTML = listToMark.map((s, i) => `
+                <tr>
+                    <td>
+                        <div class="fw-bold">${s.name}</div>
+                        <div class="small text-muted">${s.addr}</div>
+                    </td>
+                    <td class="text-center">
+                        <div class="btn-group btn-group-sm">
+                            <input type="radio" class="btn-check" name="st_${i}" id="p_${i}" value="present" checked>
+                            <label class="btn btn-outline-success" for="p_${i}">Đi học</label>
+                            <input type="radio" class="btn-check" name="st_${i}" id="a_${i}" value="absent">
+                            <label class="btn btn-outline-secondary" for="a_${i}">Vắng</label>
+                        </div>
+                    </td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-light text-danger" onclick="listToMark.splice(${i},1);renderTable();">Xóa</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+       async function sendBulkToBlockchain() {
+
+            const sessionEl = document.getElementById('selSession');
+            const dateEl = document.getElementById('selDate');
+
+            if (!sessionEl || !dateEl) {
+                alert("Không tìm thấy selSession hoặc selDate!");
+                return;
+            }
+
+            // Text hiển thị
+            const sessionText =
+                sessionEl.options[sessionEl.selectedIndex].text.trim();
+
+            // VALUE = ID
+            const sessionId = Number(sessionEl.value);
+
+            // Tách tên môn
+            let subject = "";
+
+            if (sessionText.includes(":")) {
+                subject = sessionText.split(":")[1].trim();
+            } else {
+                subject = sessionText;
+            }
+
+            // YYYY-MM-DD
+            const studyDate = dateEl.value.trim();
+
+            if (!studyDate || listToMark.length === 0) {
+                alert("Vui lòng chọn ngày và thêm sinh viên!");
+                return;
+            }
+
+            try {
+
+                let addrs = [];
+                let hashes = [];
+
+                listToMark.forEach((s, i) => {
+
+                    const radioPresent =
+                        document.querySelector(`input[name="st_${i}"]:checked`);
+
+                    if (
+                        radioPresent &&
+                        radioPresent.value === "present"
+                    ) {
+
+                        const wallet =
+                            s.addr.toLowerCase().trim();
+
+                        // HASH CHUẨN
+                        const rawString =
+                            wallet +
+                            "Present" +
+                            subject +
+                            studyDate;
+
+                        const hash = ethers.keccak256(
+                            ethers.toUtf8Bytes(rawString)
+                        );
+
+                        console.log("RAW:", rawString);
+                        console.log("HASH:", hash);
+
+                        addrs.push(s.addr);
+                        hashes.push(hash);
+                    }
+                });
+
+                if (addrs.length === 0) {
+                    alert("Không có sinh viên nào được điểm danh!");
+                    return;
+                }
+
+                const tx = await contract.markAttendanceBulk(
+                    sessionId,
+                    addrs,
+                    hashes
+                );
+
+                alert("Đang ghi dữ liệu lên Sepolia...");
+
+                await tx.wait();
+
+                alert("✅ Lưu Blockchain thành công!");
+
+            } catch (e) {
+
+                console.error(e);
+
+                alert(
+                    "Lỗi Blockchain: " +
+                    (e.reason || e.message)
+                );
+            }
+        }
+
+        async function runVerify() {
+            const id = document.getElementById('vSess').value;
+            const addr = document.getElementById('vAddr').value.trim();
+            if(!id || !addr) return alert("Nhập đủ ID buổi và Ví SV!");
+            
+            try {
+                // 1. Kiểm tra bằng chứng điểm danh (Hash)
+                const hash = await contract.verifyAttendance(id, addr);
+                const res = document.getElementById('verifyRes');
+                
+                if (hash !== "0x0000000000000000000000000000000000000000000000000000000000000000") {
+                    // 2. Nếu có Hash, truy vấn tiếp tên sinh viên từ Mapping students
+                    const studentInfo = await contract.students(addr);
+                    const studentName = studentInfo.name || "N/A";
+                    
+                    res.innerHTML = `
+                        <div class="alert alert-success p-2 w-100 mb-0">
+                            <strong>✅ Xác nhận có mặt</strong><br>
+                            <span class="small">Họ tên: ${studentName}</span><br>
+                            <span class="small" style="font-size: 0.7rem;">Bằng chứng: ${hash.substring(0,10)}...</span>
+                        </div>`;
+                } else {
+                    res.innerHTML = `<div class="alert alert-danger p-2 w-100 mb-0">❌ Vắng hoặc chưa lưu dữ liệu</div>`;
+                }
+            } catch (e) {
+                alert("Lỗi truy vấn: " + e.message);
+            }
+        }
+
+        
+		async function sendToTelegram() {
+            if (listToMark.length === 0) return alert("Bảng điểm danh đang trống!");
+
+            const BOT_TOKEN = '8267481843:AAErGdFSJN7-1IaUklF5hIWsM01JtvmnUgA'; //
+            const CHAT_ID = '5674540480'; //
+
+            // LẤY TÊN MÔN HỌC: Trích xuất phần chữ từ "ID 3: NNTM"
+            const sessionEl = document.getElementById('selSession');
+            const sessionText = sessionEl.options[sessionEl.selectedIndex].text;
+            const subjectName = sessionText.split(': ')[1] || sessionText; // Lấy phần sau dấu ":"
+
+            const studyDate = document.getElementById('selDate').value;
+            const formattedDate = studyDate.split('-').reverse().join('/'); // Định dạng DD/MM/YYYY
+
+            let message = `🚀 *BÁO CÁO ĐIỂM DANH TỰ ĐỘNG*\n`;
+            message += `📚 *Môn học:* ${subjectName}\n`; // Đã sửa từ ID số thành Tên môn
+            message += `📅 *Ngày học:* ${formattedDate}\n`;
+            message += `----------------------------\n`;
+
+            listToMark.forEach((s, i) => {
+                const radioPresent = document.querySelector(`input[name="st_${i}"]:checked`);
+                const status = (radioPresent && radioPresent.value === "present") ? "✅ Có mặt" : "❌ Vắng";
+                message += `${i + 1}. *${s.name}*: ${status}\n`;
+            });
+
+            message += `----------------------------\n`;
+            message += `🔗 [Xem trên Etherscan](https://sepolia.etherscan.io/address/${contractAddress})`;
+
+            try {
+                const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        chat_id: CHAT_ID,
+                        text: message,
+                        parse_mode: 'Markdown'
+                    })
+                });
+
+                if (response.ok) {
+                    alert("🚀 Báo cáo đã được gửi tới Telegram!");
+                    listToMark = [];
+                    renderTable();
+                } else {
+                    alert("Lỗi: Không gửi được tin nhắn. Hãy kiểm tra lại Token/ID.");
+                }
+            } catch (error) { 
+                alert("Lỗi kết nối Telegram: " + error.message); 
+            }
+        }
+
+        async function checkAttendance() {
+
+            const sessionIdInput =
+                document.getElementById('checkSessionId').value;
+
+            const studyDate =
+                document.getElementById('checkDate').value;
+
+            const studentAddr =
+                document.getElementById('checkStudentAddr').value.trim();
+
+            const resultDiv =
+                document.getElementById('checkResult');
+
+            const sessionEl =
+                document.getElementById('selSession');
+
+            if (
+                !sessionIdInput ||
+                !studyDate ||
+                !studentAddr
+            ) {
+
+                resultDiv.innerHTML = `
+                    <div class="alert alert-warning text-center">
+                        ⚠️ Vui lòng nhập đầy đủ thông tin!
+                    </div>
+                `;
+
+                return;
+            }
+
+            try {
+
+                const sessionId = Number(sessionIdInput);
+
+                // Text dropdown
+                const sessionText =
+                    sessionEl.options[
+                        sessionEl.selectedIndex
+                    ].text.trim();
+
+                // Tách tên môn
+                let subject = "";
+
+                if (sessionText.includes(":")) {
+                    subject = sessionText.split(":")[1].trim();
+                } else {
+                    subject = sessionText;
+                }
+
+                // YYYY-MM-DD
+                const normalizedDate =
+                    studyDate.trim();
+
+                // wallet lowercase
+                const normalizedAddr =
+                    studentAddr.toLowerCase().trim();
+
+                // Lấy hash blockchain
+                const storedHash =
+                    await contract.verifyAttendance(
+                        sessionId,
+                        studentAddr
+                    );
+
+                console.log("========== CHECK ==========");
+                console.log("Subject:", subject);
+                console.log("Date:", normalizedDate);
+                console.log("Wallet:", normalizedAddr);
+                console.log("Stored:", storedHash);
+
+                // Chưa có dữ liệu
+                if (
+                    storedHash ===
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"
+                ) {
+
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger text-center">
+                            ❌ Chưa có dữ liệu điểm danh!
+                        </div>
+                    `;
+
+                    return;
+                }
+
+                // HASH ĐỐI CHIẾU
+                const rawString =
+                    normalizedAddr +
+                    "Present" +
+                    subject +
+                    normalizedDate;
+
+                const expectedHash =
+                    ethers.keccak256(
+                        ethers.toUtf8Bytes(rawString)
+                    );
+
+                console.log("RAW:", rawString);
+                console.log("Expected:", expectedHash);
+
+                // So sánh
+                if (
+                    storedHash.toLowerCase() ===
+                    expectedHash.toLowerCase()
+                ) {
+
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success text-center">
+                            ✅ Xác nhận có mặt
+                            <hr>
+                            <b>Môn:</b> ${subject}<br>
+                            <b>Ngày:</b> ${normalizedDate}
+                        </div>
+                    `;
+
+                } else {
+
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-warning text-center">
+                            ⚠️ Sai môn học hoặc ngày học!
+                        </div>
+                    `;
+
+                    console.log("HASH KHÔNG KHỚP!");
+                }
+
+            } catch (e) {
+
+                console.error(e);
+
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger text-center">
+                        ❌ Lỗi kiểm tra dữ liệu!
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+# Chặn các thư mục cài đặt thư viện nặng
+node_modules/
+dist/
+
+# Chặn các file chứa mã bảo mật, private key của ví (nếu có dùng sau này)
+.env
+.env.local
+
+# File rác của hệ điều hành
+.DS_Store
+Thumbs.db
