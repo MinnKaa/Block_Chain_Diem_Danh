@@ -84,7 +84,7 @@ Hợp đồng thông minh `AttendanceFinal.sol` được triển khai để lưu
 ## 6. 🖥️ Giao diện hệ thống
 
 <div align="center">
-    <img width="80%" src="img/login.png" />
+    <img width="80%" src="Code/1.png" />
     <p><i>Màn hình cổng đăng nhập xác thực ví MetaMask</i></p>
 </div>
 
